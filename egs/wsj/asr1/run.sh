@@ -319,7 +319,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     pids=() # initialize pids
     for rtask in ${recog_set}; do
     (
-        decode_dir=decode_${rtask}_beam${beam_size}_e${recog_model}_p${penalty}_len${minlenratio}-${maxlenratio}_ctcw${ctc_weight}_rnnlm${lm_weight}_${lmtag}
+        decode_dir=decode_${rtask}_beam${beam_size}_e${recog_model}_p${penalty}_len${minlenratio}-${maxlenratio}_ctcw${ctc_weight}_rnnlm${lm_weight}_${lmtag}_adv0.01
         if [ ${use_wordlm} = true ]; then
             recog_opts="--word-rnnlm ${lmexpdir}/rnnlm.model.best"
         else
