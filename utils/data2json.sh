@@ -13,7 +13,6 @@ lang=""
 feat="" # feat.scp
 oov="<unk>"
 bpecode=""
-allow_one_column=false
 verbose=0
 filetype=""
 preprocess_conf=""
@@ -109,15 +108,10 @@ for intype in input output other; do
     done
 done
 
-if ${allow_one_column}; then
-    opts+="--allow-one-column true "
-else
-    opts+="--allow-one-column false "
-fi
-
 if [ -n "${out}" ]; then
     opts+="-O ${out}"
 fi
+
 merge_scp2json.py --verbose ${verbose} ${opts}
 
 rm -fr ${tmpdir}
