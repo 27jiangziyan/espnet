@@ -58,16 +58,16 @@ epochs=15
 patience=3
 
 # rnnlm related
-use_wordlm=true     # false means to train/use a character LM
+use_wordlm=false     # false means to train/use a character LM
 lm_vocabsize=65000  # effective only for word LMs
-lm_layers=1         # 2 for character LMs
-lm_units=1000       # 650 for character LMs
-lm_opt=sgd          # adam for character LMs
+lm_layers=2         # 2 for character LMs
+lm_units=650       # 650 for character LMs
+lm_opt=adam          # adam for character LMs
 lm_sortagrad=0 # Feed samples from shortest to longest ; -1: enabled for all epochs, 0: disabled, other: enabled for 'other' epochs
-lm_batchsize=300    # 1024 for character LMs
+lm_batchsize=1024    # 1024 for character LMs
 lm_epochs=20        # number of epochs
 lm_patience=3
-lm_maxlen=40        # 150 for character LMs
+lm_maxlen=150        # 150 for character LMs
 lm_resume=          # specify a snapshot file to resume LM training
 lmtag=              # tag for managing LMs
 
