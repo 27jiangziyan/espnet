@@ -141,11 +141,19 @@ class CustomUpdater(training.StandardUpdater):
         batch = train_iter.next()
         x = self.converter(batch, self.device)
 
+#        x[0].requires_grad = True
+
         # Compute the loss at this time step and accumulate it
         optimizer.zero_grad()  # Clear the parameter gradients
         loss = self.model(*x)[0]
         if self.ngpu > 1:
             loss = loss.sum() / self.ngpu
+#        grad = torch.autograd.grad(loss, x[0], create_graph=True)[0]
+#        adv_loss = torch.norm(grad, p=2)
+#        new_loss = loss + 0.001 * adv_loss
+#        new_loss.backward()
+#        new_loss.detach()
+
         loss.backward()  # Backprop
         loss.detach()  # Truncate the graph
         # compute the gradient norm to check if it is normal or not
@@ -477,7 +485,7 @@ def recog(args):
     new_js = {}
 
     load_inputs_and_targets = LoadInputsAndTargets(
-        mode='asr', load_output=False, sort_in_input_length=False,
+        mode='asr', load_output=True, sort_in_input_length=False,
         preprocess_conf=train_args.preprocess_conf
         if args.preprocess_conf is None else args.preprocess_conf)
 
@@ -517,17 +525,35 @@ def recog(args):
         sorted_index = sorted(range(len(feat_lens)), key=lambda i: -feat_lens[i])
         keys = [keys[i] for i in sorted_index]
 
-        with torch.no_grad():
-            for names in grouper(args.batchsize, keys, None):
-                names = [name for name in names if name]
-                batch = [(name, js[name]) for name in names]
-                with using_transform_config({'train': False}):
-                    feats = load_inputs_and_targets(batch)[0]
-                nbest_hyps = model.recognize_batch(feats, args, train_args.char_list, rnnlm=rnnlm)
+        # with torch.no_grad():
+        for names in grouper(args.batchsize, keys, None):
+            names = [name for name in names if name]
+            batch = [(name, js[name]) for name in names]
+            with using_transform_config({'train': False}):
+                feats = load_inputs_and_targets(batch)[0]  # feats: [(T_1, idim)]
+                targets = load_inputs_and_targets(batch)[1]  # targets: [(O_1, )]
+
+            xs_pad = torch.from_numpy(feats[0]).unsqueeze(0)  # batch of padded input sequences: (B, Tmax, idim)
+            xs_pad.requires_grad = True
+            ilens = torch.tensor(feats[0].shape[0]).unsqueeze(0)  # batch of length of input: (B,)
+            ys_pad = torch.tensor(targets[0]).unsqueeze(0)  # batch of padded character id sequence tensor (B, Lmax)
+            loss = model(xs_pad, ilens, ys_pad)[0]
+            xs_pad_grad = torch.autograd.grad(loss, xs_pad)[0]
+            loss.backward()
+            logging.info('loss %f', loss)
+            logging.info('input_length' + str(xs_pad.shape))
+            logging.info('output_length' + str(ys_pad.shape))
+            logging.info('grad_shape' + str(xs_pad_grad.shape))
+
+            xs_pad_new = xs_pad + 0.01 * torch.sign(xs_pad_grad)
+            feats_new = [xs_pad_new.detach().squeeze(0).numpy()]
+
+            with torch.no_grad():
+
+                nbest_hyps = model.recognize_batch(feats_new, args, train_args.char_list, rnnlm=rnnlm)
                 for i, nbest_hyp in enumerate(nbest_hyps):
                     name = names[i]
                     new_js[name] = add_results_to_json(js[name], nbest_hyp, train_args.char_list)
-
     # TODO(watanabe) fix character coding problems when saving it
     with open(args.result_label, 'wb') as f:
         f.write(json.dumps({'utts': new_js}, indent=4, sort_keys=True).encode('utf_8'))
